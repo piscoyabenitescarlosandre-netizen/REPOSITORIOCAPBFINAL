@@ -24,9 +24,6 @@ class DataAnalyzer:
     def missing(self):
         return self.df.isnull().sum()
 
-    def value_counts(self, col):
-        return self.df[col].value_counts()
-
 
 # ==============================
 # SIDEBAR
@@ -45,7 +42,7 @@ if menu == "Home":
 
     st.markdown("""
     ## 🎯 Objetivo
-    Analizar los factores que influyen en la aceptación de campañas de marketing.
+    Analizar los factores que influyen en la aceptación de campañas de marketing bancario.
 
     ## 👤 Autor
     Carlos Piscoya  
@@ -98,76 +95,50 @@ elif menu == "EDA":
         df = st.session_state["df"]
         analyzer = DataAnalyzer(df)
 
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "📌 Info",
             "📊 Numéricas",
             "📊 Categóricas",
             "📈 Bivariado",
-            "🎛 Dinámico"
+            "🎛 Dinámico",
+            "🔍 Insights"
         ])
 
-        # --------------------------
-        # TAB 1
-        # --------------------------
+        # INFO
         with tab1:
-            st.subheader("Información General")
-
-            st.write("Tipos de datos:")
             st.write(df.dtypes)
-
-            st.write("Valores nulos:")
             st.write(analyzer.missing())
-
-            st.write("Estadísticas:")
             st.write(analyzer.summary())
 
-        # --------------------------
-        # TAB 2 NUMERICAS
-        # --------------------------
+        # NUMERICAS
         with tab2:
-            st.subheader("Distribución Numérica")
-
-            num_cols = analyzer.numeric_cols()
-            col = st.selectbox("Selecciona variable", num_cols)
-
+            col = st.selectbox("Variable numérica", analyzer.numeric_cols())
             fig, ax = plt.subplots()
             sns.histplot(df[col], kde=True, ax=ax)
             st.pyplot(fig)
 
-        # --------------------------
-        # TAB 3 CATEGORICAS
-        # --------------------------
+            if st.checkbox("Ver correlación"):
+                fig, ax = plt.subplots()
+                sns.heatmap(df.corr(numeric_only=True), annot=True, cmap="coolwarm", ax=ax)
+                st.pyplot(fig)
+
+        # CATEGORICAS
         with tab3:
-            st.subheader("Variables Categóricas")
-
-            cat_cols = analyzer.categorical_cols()
-            col = st.selectbox("Selecciona categórica", cat_cols)
-
+            col = st.selectbox("Variable categórica", analyzer.categorical_cols())
             counts = df[col].value_counts()
-
             st.write(counts)
 
             fig, ax = plt.subplots()
             counts.plot(kind='bar', ax=ax)
             st.pyplot(fig)
 
-        # --------------------------
-        # TAB 4 BIVARIADO
-        # --------------------------
+        # BIVARIADO
         with tab4:
-            st.subheader("Análisis Bivariado")
+            tipo = st.radio("Tipo", ["Num vs Cat", "Cat vs Cat"])
 
-            num_cols = analyzer.numeric_cols()
-            cat_cols = analyzer.categorical_cols()
-
-            tipo = st.radio("Tipo de análisis", [
-                "Numérico vs Categórico",
-                "Categórico vs Categórico"
-            ])
-
-            if tipo == "Numérico vs Categórico":
-                num = st.selectbox("Variable numérica", num_cols)
-                cat = st.selectbox("Variable categórica", cat_cols)
+            if tipo == "Num vs Cat":
+                num = st.selectbox("Num", analyzer.numeric_cols())
+                cat = st.selectbox("Cat", analyzer.categorical_cols())
 
                 fig, ax = plt.subplots()
                 sns.boxplot(x=df[cat], y=df[num], ax=ax)
@@ -175,21 +146,16 @@ elif menu == "EDA":
                 st.pyplot(fig)
 
             else:
-                cat1 = st.selectbox("Variable 1", cat_cols)
-                cat2 = st.selectbox("Variable 2", cat_cols)
+                cat1 = st.selectbox("Cat1", analyzer.categorical_cols())
+                cat2 = st.selectbox("Cat2", analyzer.categorical_cols())
 
                 cross = pd.crosstab(df[cat1], df[cat2])
                 st.write(cross)
-
                 st.bar_chart(cross)
 
-        # --------------------------
-        # TAB 5 DINAMICO
-        # --------------------------
+        # DINAMICO
         with tab5:
-            st.subheader("Análisis Dinámico")
-
-            col = st.selectbox("Selecciona columna", df.columns)
+            col = st.selectbox("Columna", df.columns)
 
             if df[col].dtype == "object":
                 st.bar_chart(df[col].value_counts())
@@ -197,6 +163,22 @@ elif menu == "EDA":
                 fig, ax = plt.subplots()
                 sns.histplot(df[col], kde=True, ax=ax)
                 st.pyplot(fig)
+
+        # INSIGHTS
+        with tab6:
+            st.subheader("🔍 Insights automáticos")
+
+            if "y" in df.columns:
+                st.write("📊 Tasa de conversión")
+                st.write(df["y"].value_counts(normalize=True) * 100)
+
+                if "duration" in df.columns:
+                    st.write("⏱ Duración vs resultado")
+                    st.write(df.groupby("y")["duration"].mean())
+
+                if "contact" in df.columns:
+                    st.write("📞 Contacto vs conversión")
+                    st.write(pd.crosstab(df["contact"], df["y"], normalize="index") * 100)
 
 # ==============================
 # CONCLUSIONES
@@ -206,12 +188,9 @@ elif menu == "Conclusiones":
     st.title("📌 Conclusiones")
 
     st.markdown("""
-    1. La duración de la llamada influye fuertemente en la aceptación.
-    2. Clientes sin créditos activos tienen mayor probabilidad de conversión.
-    3. Algunos canales de contacto son más efectivos que otros.
-    4. Variables económicas muestran impacto en la decisión del cliente.
-    5. Segmentos específicos de clientes presentan mayor tasa de aceptación.
-
-    💡 Recomendación:
-    Optimizar estrategias de contacto y segmentación de clientes.
+    1. La duración de la llamada influye directamente en la conversión.
+    2. El canal de contacto impacta significativamente los resultados.
+    3. La tasa de conversión es baja, confirmando el problema del negocio.
+    4. Existen segmentos de clientes con mayor probabilidad de aceptación.
+    5. Se recomienda optimizar la segmentación y estrategia de contacto.
     """)
